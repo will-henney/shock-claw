@@ -36,4 +36,18 @@
 
        FAILED (failures=1)
      #+end_example
-** Trying an example notebook
+
+4. Cloned the applications repository
+   #+begin_src sh
+     git clone --recursive https://github.com/clawpack/apps
+   #+end_src
+   - This has some example notebooks among other stuff
+
+
+** Trying sample scripts
+- I tried the first example given in the [[https://www.clawpack.org/first_run_pyclaw.html#first-run-pyclaw][help pages]] for the IPython interpreter using ~uv run jupyter console~
+  - This seems to work, but the plotting routines are a bit broken.
+- I manage to get some images, but there was an error because it was trying to use ~string.zfill~, which has not been a thing since Python 2. It should be a method on the ~str~ objects now.s
+** Trying sample notebook
+- First one I found was from ~euler_3d~ but that requires the simulation to be run first
+- So I am doing that now, but I think it will take a while. It is taking 2.5 minutes per timestep, and it needs to do 10 of them

@@ -1,0 +1,4 @@
+_output/
+.ipynb_checkpoints/
+*.pyc
+*.hdf

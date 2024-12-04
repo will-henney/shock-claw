@@ -1,0 +1,12 @@
+2024-12-04 12:57:07,493 pyclaw.fileio INFO CLAW: 306 - Wrote out solution in format hdf5 for time t=0.0
+2024-12-04 12:57:07,494 pyclaw.controller INFO CLAW: 415 - Solution 0 computed for time t=0.000000
+2024-12-04 12:59:30,442 pyclaw.fileio INFO CLAW: 306 - Wrote out solution in format hdf5 for time t=0.06
+2024-12-04 12:59:30,442 pyclaw.controller INFO CLAW: 415 - Solution 1 computed for time t=0.060000
+2024-12-04 13:03:28,987 pyclaw.fileio INFO CLAW: 306 - Wrote out solution in format hdf5 for time t=0.12
+2024-12-04 13:03:28,987 pyclaw.controller INFO CLAW: 415 - Solution 2 computed for time t=0.120000
+2024-12-04 13:08:38,028 pyclaw.fileio INFO CLAW: 306 - Wrote out solution in format hdf5 for time t=0.18
+2024-12-04 13:08:38,029 pyclaw.controller INFO CLAW: 415 - Solution 3 computed for time t=0.180000
+2024-12-04 13:13:36,929 pyclaw.fileio INFO CLAW: 306 - Wrote out solution in format hdf5 for time t=0.24
+2024-12-04 13:13:36,929 pyclaw.controller INFO CLAW: 415 - Solution 4 computed for time t=0.240000
+2024-12-04 13:18:35,809 pyclaw.fileio INFO CLAW: 306 - Wrote out solution in format hdf5 for time t=0.3
+2024-12-04 13:18:35,809 pyclaw.controller INFO CLAW: 415 - Solution 5 computed for time t=0.300000
