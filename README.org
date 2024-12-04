@@ -1,0 +1,39 @@
+* TODO Tests of pyclaw
+:LOGBOOK:
+- State "TODO"       from              [2024-12-03 Tue 23:21] \\
+  Hoping that I can investigate radiative shocks with this
+:END:
+** How I am managing python and dependencies
+- Rather than doing ~uv init~ and then using ~uv add~ as I have in other projects, this time I am going to try the ~uv pip~ and ~uv venv~ interface, which is not so project-based (for instance, there is no pyproject.toml)
+- Use the ~uv venv~ to make a virtual environment in the current directory
+  - This can be activated with ~source .venv/bin/activate~, but that is not necessarily required because ...
+  - ... I can use ~uv run~ within the project folder and it will use the environment automatically 
+- Install dependencies with ~uv pip~ and they go into the virtual env
+** Installation
+1. Installed all the dependencies and the basic pyclaw package
+   - In principal, this is all that is necessary for using the python interface, but I have carried on with other steps, so I have all the examples and source files available
+2. Cloned the git repo in [[file:../clawpack_src/]]
+   - Activated all the submodules
+3. Ran the tests in the [[file:../clawpack_src/pyclaw/examples/]] folder
+   #+begin_src sh
+     nosetests -v
+   #+end_src
+   - This passed all but one of the tests
+     #+begin_example
+       ======================================================================
+       FAIL: examples.advection_1d_variable.test_variable_coefficient_advection.TestAdvectionVarCoeff1D.test_sharpclaw_custom_time_integrator
+       ----------------------------------------------------------------------
+       Traceback (most recent call last):
+         File "/Users/will/Dropbox/pyclaw-test/.venv/lib/python3.12/site-packages/nose/case.py", line 170, in runTest
+           self.test(*self.arg)
+         File "/Users/will/Dropbox/clawpack_src/pyclaw/examples/advection_1d_variable/test_variable_coefficient_advection.py", line 50, in test_sharpclaw_custom_time_integrator
+           assert error(test_name='sharpclaw_custom_time_integrator_'+rk_name,kernel_language='Fortran',solver_type='sharpclaw',
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       AssertionError: Failed for SSP33
+
+       ----------------------------------------------------------------------
+       Ran 65 tests in 51.095s
+
+       FAILED (failures=1)
+     #+end_example
+** Trying an example notebook
