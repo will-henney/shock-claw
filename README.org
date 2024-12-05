@@ -51,3 +51,9 @@
 ** Trying sample notebook
 - First one I found was from ~euler_3d~ but that requires the simulation to be run first
 - So I am doing that now, but I think it will take a while. It is taking 2.5 minutes per timestep, and it needs to do 10 of them
+- Now running notebook
+  - I had to add ~file_prefix="claw"~ when loading the solution
+  - I had to make loads of other modifications to the yt functions to get it to work
+  - But I did manage to make cut plane plots
+  - And also to do a 3d plot of an isosurface of density, but colored with the energy
+  - Although I failed to get interactive plots to work in the notebook
