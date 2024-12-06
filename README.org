@@ -1,4 +1,5 @@
-* TODO Tests of pyclaw
+* DONE Installing and testing PyClaw
+CLOSED: [2024-12-05 Thu 11:50]
 :LOGBOOK:
 - State "TODO"       from              [2024-12-03 Tue 23:21] \\
   Hoping that I can investigate radiative shocks with this
@@ -42,13 +43,18 @@
      git clone --recursive https://github.com/clawpack/apps
    #+end_src
    - This has some example notebooks among other stuff
-
-
-** Trying sample scripts
+** Test the installation and the examples
+*** DONE Trying sample scripts
+CLOSED: [2024-12-04 Wed 18:34]
 - I tried the first example given in the [[https://www.clawpack.org/first_run_pyclaw.html#first-run-pyclaw][help pages]] for the IPython interpreter using ~uv run jupyter console~
   - This seems to work, but the plotting routines are a bit broken.
 - I manage to get some images, but there was an error because it was trying to use ~string.zfill~, which has not been a thing since Python 2. It should be a method on the ~str~ objects now.s
-** Trying sample notebook
+*** DONE Trying sample notebook
+CLOSED: [2024-12-04 Wed 18:34]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2024-12-04 Wed 18:34] \\
+  So I did this, but it is not really that relevant to what I want to do since it is mainly faffing around with 3d visualization, whereas all I need is 1d for now
+:END:
 - First one I found was from ~euler_3d~ but that requires the simulation to be run first
 - So I am doing that now, but I think it will take a while. It is taking 2.5 minutes per timestep, and it needs to do 10 of them
 - Now running notebook
@@ -57,3 +63,86 @@
   - But I did manage to make cut plane plots
   - And also to do a 3d plot of an isosurface of density, but colored with the energy
   - Although I failed to get interactive plots to work in the notebook
+*** DONE Trying the notebooks in the Riemann Book repo
+CLOSED: [2024-12-05 Thu 11:47]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2024-12-05 Thu 11:47] \\
+  Now I have successfully run all the notebooks from this book. Now I need to work out how to modify things for the radiative shocks
+- State "TODO"       from              [2024-12-04 Wed 18:36] \\
+  I looked at the notebooks in the app repo, but it said they were non-functional and I should look at these instead
+:END:
+- https://github.com/clawpack/riemann_book
+- This is a whole thing with its own instructions, so I am using a separate venv
+  - Done ~uv venv~ in ~~/Dropbox/clawpack_src/riemann_book~
+  - Then ~uv pip install ...~ everything given in the Installation section of the README file
+- Note that it was necessary to pin the notebook version to 6, because the current version of the notebook does not work with the extensions
+  - ~uv pip install notebook==6.4.6~
+- Log of the install
+  #+begin_src sh :dir ../clawpack_riemann_book
+    uv venv
+    uv pip install -r requirements.txt
+    uv pip install clawpack
+    uv pip install "notebook<7"
+    uv run jupyter nbextension enable --py widgetsnbextension
+    uv pip install jupyter_contrib_nbextensions
+    uv run jupyter contrib nbextension install --user
+    uv run jupyter nbextension enable equation-numbering/main
+    uv run python test.py
+    uv pip install seaborn
+    uv pip install JSAnimation
+    ls *.ipynb
+    uv run python test-remaining.py
+  #+end_src
+- I installed JSAnimation to quieten a warning
+- I installed seaborn in an attempt to stop two of the notebooks from crashing, but it did not help
+- All the other notebooks ran fine with ~test.py~ and ~test-remaining.py~
+  - These use ~nbconvert~ to run each notebook
+  - The latter is my own version that skips all the ones that have already been tried
+- Note that there is also a docker image that you can install, which may have been easier, but I have it all working now
+-
+- 
+**** Running notebooks by hand
+- These all worked, except for the kitchen sink one, which has problems with the javascript animations
+- The ~FV_compare~ one is going to be the most useful for modifying to my own purposes
+- I managed to get round the seaborn crashes by changing the line from
+  : plt.style.use('seaborn-talk')
+  to 
+  : plt.style.use('seaborn-v0_8-talk')
+- But the ~Kitchen_sink_proplem.ipynb~ one required changing all
+  : HTML(anim.to_jshtml())
+  to just
+  : anim
+  and then everything worked
+
+**** Stuff that did not work - ignore this section, except as a lesson
+- *No, this is the wrong track. Better to pin to version 6*
+- However, it is all dependent on the old version of jupyter notebooks, which you /can/ still use, but it requires installing ~nbclassic~ and the commands are a bit different
+  - First install the classic notebook
+    : uv pip install nbclassic
+  - Then enable the extension (replacing ~jupyter nbextension enable --py widgetsnbextension~)
+    : uv run jupyter nbclassic extension enable --py widgetsnbextension
+* Using PyClaw for radiative shocks
+** Learn the terminology used by PyClaw
+- Domain :: Convenience object for uniform rectangular grids
+- Gauge :: What are these?
+- Patch ::
+- Solution :: 
+- State :: The current state on a particular patch
+  : including the unknowns q, the time t, and the auxiliary coefficients aux
+** TODO How to set up a problem
+*** Marimo notebook of demo problem
+- [[file:euler_3d/pyclaw tutorial.py]] not sure why I put it in that folder
+** TODO How to add in the cooling
+- I have been looking at the source code in [[file:../clawpack_src/pyclaw/src/pyclaw/]] and it looks like it might be easy
+- There is a function in [[file:../clawpack_src/pyclaw/src/pyclaw/solver.py::def before_step(solver,solution):][solver.py]] called ~before_step~ that is called before each time step
+  - This is where I should put the cooling function
+  - In the ~evolve_to_time()~ function it is called as
+    #+begin_src python
+                  if self.before_step is not None:
+                      self.before_step(self, solution.states[0])
+    #+end_src
+    - So it has access to the base state, which includes all the variables that I need
+- On the other hand, the docs mention that source terms are added via a routine called ~src~
+  - But this is for the fortran version. I need to check what is the equivalent in pyclaw
+** TODO Plotting and animation
+- For animation, see [[http://www.clawpack.org/gallery/_static/apps/notebooks/visclaw/animation_tools_demo.html][this page]]
