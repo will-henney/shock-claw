@@ -135,8 +135,23 @@ CLOSED: [2024-12-06 Fri 12:58]
 - [[file:tutorial/pyclaw tutorial.py]]
   - This works well to set up an acoustics problem and display the results using matplotlib
   - I have combined it with the marimo ui elements to allow choosing the timestep with a number picker and the plots update automatically 
-*** Marimo notebook of a shock problem
-Now, we want to do the same but for the Euler equations with a shock
+*** DONE Marimo notebook of a shock tube problem
+CLOSED: [2024-12-07 Sat 09:56]
+- Now, we want to do the same but for the Euler equations with a shock
+- This is in [[file:shock-test/shock-tube-marimo.py]]
+- It does the classic Sod shock tube problem between two initially static states with different pressures and densities
+- I have set it up to use the python version of Roe solver and it works great
+- I have used marimo UI elements to allow stepping through the output times of a given solution, and also to change the value of gamma
+  - Changing gamma causes the simulation to re-run, but this only takes a second or so
+*** DONE Marimo notebook of colliding streams
+CLOSED: [2024-12-07 Sat 11:45]
+- [[file:shock-test/stream-collide-marimo.py]]
+- This will be closer to being useful for me for simulating radiative shocks
+- I will start off with identical pressure, density, abs(velocity) in each half, but with velocity sign reversed so that they converge on mid-plane
+- This seems to work fine
+  - The velocity goes to zero immediately at the shock, which means that we do not have any pressure gradients in the stagnation shell
+  - The shock propagates outward, so it is not so easy to know what the upstream Mach number in the shock frame is
+- For a high inflow velocity (10 in code units, which I think is in units of isothermal sound speed), we get compression of nearly 4 in the gamma = 5/3 case, and compression of nearly 100 in the gamma = 1.001 case.
 ** Choosing the Riemann solver to use
 - There are fortran and python versions of most of the solvers
 - To start with, I am only interested in the 1-dimensional ones
