@@ -130,8 +130,26 @@ CLOSED: [2024-12-05 Thu 11:47]
 - State :: The current state on a particular patch
   : including the unknowns q, the time t, and the auxiliary coefficients aux
 ** TODO How to set up a problem
-*** Marimo notebook of demo problem
-- [[file:euler_3d/pyclaw tutorial.py]] not sure why I put it in that folder
+*** DONE Marimo notebook of demo problem
+CLOSED: [2024-12-06 Fri 12:58]
+- [[file:tutorial/pyclaw tutorial.py]]
+  - This works well to set up an acoustics problem and display the results using matplotlib
+  - I have combined it with the marimo ui elements to allow choosing the timestep with a number picker and the plots update automatically 
+*** Marimo notebook of a shock problem
+Now, we want to do the same but for the Euler equations with a shock
+** Choosing the Riemann solver to use
+- There are fortran and python versions of most of the solvers
+- To start with, I am only interested in the 1-dimensional ones
+- The fortran ones are in [[file:../clawpack_src/riemann/src]]
+  - ~rp1_euler_with_efix.f90~ has the Roe solver
+    (with entropy fix for transonic rarefaction waves)
+  - ~rp1_euler_hlle.f90~ has the HLLE solver
+  - ~rp1_mhd_roe.f90~ has an mhd solver
+    - note that this has x, y, z components of momentum and B field, even though it is in 1 dimension
+- The python ones are in [[file:../clawpack_src/riemann/riemann]]
+  - ~euler_1D_py.py~ has a Roe solver and HLLC solver, but no exact solver
+  - ~euler_with_efix_1D_constants.py~ has constants for the index of the conserved variables (density, momentum, energy) 
+- 
 ** TODO How to add in the cooling
 - I have been looking at the source code in [[file:../clawpack_src/pyclaw/src/pyclaw/]] and it looks like it might be easy
 - There is a function in [[file:../clawpack_src/pyclaw/src/pyclaw/solver.py::def before_step(solver,solution):][solver.py]] called ~before_step~ that is called before each time step
@@ -144,5 +162,8 @@ CLOSED: [2024-12-05 Thu 11:47]
     - So it has access to the base state, which includes all the variables that I need
 - On the other hand, the docs mention that source terms are added via a routine called ~src~
   - But this is for the fortran version. I need to check what is the equivalent in pyclaw
+  - Now I have read the docs, and it is indeed the source function I need to add
+    - ~solver.step_source()~ for the classic solvers
+    - ~solver.dq_source()~ for the SharpClaw solvers
 ** TODO Plotting and animation
 - For animation, see [[http://www.clawpack.org/gallery/_static/apps/notebooks/visclaw/animation_tools_demo.html][this page]]

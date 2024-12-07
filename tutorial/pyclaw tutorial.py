@@ -4,13 +4,13 @@ __generated_with = "0.9.31"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(mo):
     mo.md(r"""This will include material copied from the [web page of the PyClaw tutorial](http://www.clawpack.org/pyclaw/tutorial.html)""")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(mo):
     mo.md("""## The Solver""")
     return
@@ -25,7 +25,7 @@ def __(pyclaw, riemann):
     return (solver,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(mo):
     mo.md(r"""## The domain""")
     return
@@ -43,7 +43,7 @@ def __(domain, pyclaw, solver):
     return (solution,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(mo):
     mo.md(r"""## Initial Condition""")
     return
@@ -67,7 +67,7 @@ def __(np, solution):
     return bulk, exp, rho, state, xc
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(mo):
     mo.md(r"""### The controller""")
     return
@@ -168,7 +168,7 @@ def __(controller, mo):
     return (itime,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(mo):
     mo.md(
         r"""
