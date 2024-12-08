@@ -166,6 +166,80 @@ CLOSED: [2024-12-07 Sat 11:45]
   - ~euler_with_efix_1D_constants.py~ has constants for the index of the conserved variables (density, momentum, energy) 
 - 
 ** TODO How to add in the cooling
+- Now I have read the docs, and it is indeed the source function I need to add
+  - ~solver.step_source()~ for the classic solvers
+  - ~solver.dq_source()~ for the SharpClaw solvers
+*** How does ~step_source()~ work?
+- I have grepped for it in the pyclaw examples source files
+  - In ~advection_reaction.py~, it mutates the state.q to account for the reaction term
+  - In ~shock_bubble_interaction.py~, it also mutates the state.q, this time for the geometric source term in cylindrical symmetry
+    - It used a two-step second order runge-kutta method, where it takes a half timestep of the source term to get intermediate states, and then uses these to get to recalculate the source term to apply over the whole time step
+- So that is pretty definitive - we need to mutate the state.q values to account for the source terms applied over the timestep
+*** Converting between code units and physical units
+- The Riemann solver uses the following conservation variables:
+  - Density: g/cm^3
+  - Momentum density: g/cm^2/s
+  - Energy density: erg/cm^3 or g/cm/s^2
+- But we can replace the second two with primitive variables:
+  - Velocity: cm/s
+  - Pressure: erg/cm^3 or g/cm/s^2
+- So for fiducial variables, I need a length, a time and a mass
+  - r_*, t_*, m_*
+- But I really want to define a fiducial number density (say 100 pcc) and a temperature (say 1e4 K), while the mass can be the mass of a hydrogen atom
+  - n_* = r_*^-3, T_*
+  - where v_* = r_* / t_* is the sound speed at T = T_*
+  - but do we want to use the isothermal sound speed or the adiabatic sound speed? Say the isothermal one for now: v_*^2 = P_* / rho_* = 2 n_* k T_* / m_* n_*
+    - v_*^2 = 2 k T_* / m_*
+*** How to pass in the parameters of the cooling function?
+- This can be done as with the ~gamma~ parameters by using the dict ~state.problem_data~. The parameters we want are:
+  - Equilibrium temperature: ~Teq~ (default: 1.0)
+  - Cooling timescale (cooling time for rho=1 at T=Teq): ~tcool~
+    - (default: 0.1)
+    - t_cool = E_int / L where E_int is the internal energy density (q[2] - KE) and L = n^2 * \Lambda(T_eq) = \rho^2 \Lambda(T_eq) / m_H^2
+    - E_int = P / (\gamma - 1) = 1.5 P for gamma = 5/3
+    - P = \rho a^2 / \gamma = 2 n k T = 2 \rho k T / m_H
+    - t_cool = 2 k T_eq m_H / (\gamma - 1) \rho \Lambda(T_eq)
+    - But the characteristic t_cool is for \rho = 1, so we have in code units
+      - \Lambda(T_eq) = [2 k T_eq m_H / (\gamma - 1)] t_cool^-1
+  - Power law slopes (q_C and q_H in the cooling/heating functions)
+    - ~cool_slope~ (default: 2.2) \Lambda(T) = \Lambda(T_eq) * (T / T_eq)^{q_C}
+    - ~heat_slope~ (default: -1.0) \Gamma(T) = \Gamma(T_eq) * (T / T_eq)^{q_H}
+*** Example cooling function
+  #+begin_src python
+    DEFAULTS = {
+        "cool_rate": 1.0,
+        "cool_slope": 2.2,
+        "heat_slope": -1.0,
+        "gamma": 5/3,
+        "gamma1": 2/3,
+    }
+
+
+
+    def cooling_source_term_step(solver, state, dt):
+        # Attempt to get the cooling parameters from the state, with
+        # fallback to the defaults
+        cool_rate = state.problem_data.get("cool_rate", DEFAULTS["cool_rate"])
+        cool_slope = state.problem_data.get("cool_slope", DEFAULTS["cool_slope"])
+        heat_slope = state.problem_data.get("heat_slope", DEFAULTS["heat_slope"])
+        gamma = state.problem_data.get("gamma", DEFAULTS["gamma"])
+        gamma1 = state.problem_data.get("gamma1", DEFAULTS["gamma1"])
+        
+        # Find primitive variables from conserved variables
+        density = state.q[i_density, :]
+        velocity = state.q[i_momentum, :] / density
+        internal_energy = state.q[i_energy, :] - 0.5 * density * velocity**2
+        pressure = gamma1 * internal_energy
+
+        # Integrate net (heating - cooling) over the timestep
+        dE = 0.0
+
+        # Modify the energy of the state
+        state.q[i_energy, :] += dE
+
+        return None
+  #+end_src
+*** Earlier investigations
 - I have been looking at the source code in [[file:../clawpack_src/pyclaw/src/pyclaw/]] and it looks like it might be easy
 - There is a function in [[file:../clawpack_src/pyclaw/src/pyclaw/solver.py::def before_step(solver,solution):][solver.py]] called ~before_step~ that is called before each time step
   - This is where I should put the cooling function
@@ -177,8 +251,5 @@ CLOSED: [2024-12-07 Sat 11:45]
     - So it has access to the base state, which includes all the variables that I need
 - On the other hand, the docs mention that source terms are added via a routine called ~src~
   - But this is for the fortran version. I need to check what is the equivalent in pyclaw
-  - Now I have read the docs, and it is indeed the source function I need to add
-    - ~solver.step_source()~ for the classic solvers
-    - ~solver.dq_source()~ for the SharpClaw solvers
 ** TODO Plotting and animation
 - For animation, see [[http://www.clawpack.org/gallery/_static/apps/notebooks/visclaw/animation_tools_demo.html][this page]]
