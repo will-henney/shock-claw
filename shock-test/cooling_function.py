@@ -28,7 +28,9 @@ def cooling_source_term_step(solver, state, dt):
     the `T_eq` parameter.  The cooling rate (energy/time) for
     density=1 and temperature=T_eq is given by the `cool_rate`
     parameter.  The cooling method can be either "first order" or
-    "second order".
+    "second order".,
+
+    Author: William Henney, 2024
     """
     # Attempt to get the cooling parameters from the state, with
     # fallback to the defaults
@@ -41,9 +43,9 @@ def cooling_source_term_step(solver, state, dt):
     gamma1 = state.problem_data.get("gamma1", DEFAULTS["gamma1"])
     
     # Find primitive variables from conserved variables
-    density = state.q[i_density, :]
-    velocity = state.q[i_momentum, :] / density
-    internal_energy = state.q[i_energy, :] - 0.5 * density * velocity**2
+    density = state.q[0, :]
+    velocity = state.q[1, :] / density
+    internal_energy = state.q[2, :] - 0.5 * density * velocity**2
     pressure = gamma1 * internal_energy
     temperature = pressure / density
 
@@ -75,6 +77,6 @@ def cooling_source_term_step(solver, state, dt):
         raise ValueError(f"Unknown cooling method: {cool_method}")
     
     # Modify the energy of the state
-    state.q[i_energy, :] += dE
+    state.q[2, :] += dE
 
     return None
