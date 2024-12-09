@@ -33,7 +33,8 @@ def __(mo):
 
 
 @app.cell
-def __(cooling_function, pyclaw, riemann):
+def __(cooling_function, domain, pyclaw, riemann):
+    _ = domain # re-create if domain changes
     solver = pyclaw.ClawSolver1D(riemann.euler_1D_py.euler_roe_1D)
     solver.kernel_language = "Python"
     solver.bc_lower[0] = pyclaw.BC.extrap
@@ -65,9 +66,8 @@ def __(mo):
 
 
 @app.cell
-def __(pyclaw):
-    _mx = 800
-    domain = pyclaw.Domain([pyclaw.Dimension(-1.0, 1.0, _mx, name="x")])
+def __(NCELLS, pyclaw):
+    domain = pyclaw.Domain([pyclaw.Dimension(-1.0, 1.0, NCELLS.value, name="x")])
     domain.patch
     return (domain,)
 
@@ -120,6 +120,7 @@ def __(i_density, i_energy, i_momentum, np):
 
 @app.cell
 def __(
+    COOL_METHOD,
     COOL_RATE,
     COOL_SLOPE,
     EQUILIBRIUM_TEMPERATURE,
@@ -139,6 +140,7 @@ def __(
     state.problem_data["efix"] = False
 
     # Parameters for the cooling
+    state.problem_data["cool_method"] = COOL_METHOD.value
     state.problem_data["cool_rate"] = COOL_RATE.value
     state.problem_data["cool_slope"] = COOL_SLOPE.value
     state.problem_data["T_eq"] = EQUILIBRIUM_TEMPERATURE.value
@@ -220,16 +222,7 @@ def __(mo):
 
 
 @app.cell
-def __(
-    COOL_RATE,
-    COOL_SLOPE,
-    EQUILIBRIUM_TEMPERATURE,
-    GAMMA,
-    VELOCITY,
-    controller,
-    mo,
-):
-    _ = GAMMA, VELOCITY, COOL_RATE, EQUILIBRIUM_TEMPERATURE, COOL_SLOPE
+def __(controller, mo):
     ITIME = mo.ui.number(
         start=0,
         stop=controller.num_output_times,
@@ -279,17 +272,37 @@ def __(mo):
         value=2.3,
         label=r"Cooling steepness",
     )
-    return COOL_RATE, COOL_SLOPE, EQUILIBRIUM_TEMPERATURE, GAMMA, VELOCITY
+    COOL_METHOD = mo.ui.dropdown(
+        options=["first order", "second order", "exact"],
+        value="second order",
+        label="Cooling method",
+    )
+    NCELLS = mo.ui.number(
+        start=100,
+        stop=3200,
+        step=100,
+        value=800,
+        label=r"Number of cells",
+    )
+    return (
+        COOL_METHOD,
+        COOL_RATE,
+        COOL_SLOPE,
+        EQUILIBRIUM_TEMPERATURE,
+        GAMMA,
+        NCELLS,
+        VELOCITY,
+    )
 
 
 @app.cell
-def __(ITIME, controller, np, pd, primitives):
+def __(ITIME, NCELLS, controller, np, pd, primitives):
     _state = controller.frames[ITIME.value].state
     _d, _v, _p = primitives(_state)
     _x = _state.grid.x.centers
 
 
-    def tidy(col, step=40, precision=3):
+    def tidy(col, step=NCELLS.value//20, precision=3):
         return np.round(col[slice(None, None, step)], precision)
 
 
@@ -307,11 +320,13 @@ def __(ITIME, controller, np, pd, primitives):
 
 @app.cell
 def __(
+    COOL_METHOD,
     COOL_RATE,
     COOL_SLOPE,
     EQUILIBRIUM_TEMPERATURE,
     GAMMA,
     ITIME,
+    NCELLS,
     VELOCITY,
     controller,
     mo,
@@ -357,8 +372,10 @@ def __(
                 [
                     ITIME,
                     mo.md(f"Time = {_state.t:.3f}"),
+                    NCELLS,
                     GAMMA,
                     VELOCITY,
+                    COOL_METHOD,
                     COOL_RATE,
                     COOL_SLOPE,
                     EQUILIBRIUM_TEMPERATURE,
