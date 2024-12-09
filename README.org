@@ -204,12 +204,22 @@ CLOSED: [2024-12-07 Sat 11:45]
   - Power law slopes (q_C and q_H in the cooling/heating functions)
     - ~cool_slope~ (default: 2.2) \Lambda(T) = \Lambda(T_eq) * (T / T_eq)^{q_C}
     - ~heat_slope~ (default: -1.0) \Gamma(T) = \Gamma(T_eq) * (T / T_eq)^{q_H}
-*** Example cooling function
-  #+begin_src python
+*** DONE Example cooling function
+CLOSED: [2024-12-08 Sun 19:53]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2024-12-08 Sun 19:53] \\
+  Done initial version of this, implementing first and second order methods. I still need to test it, and also to add the exact method.
+:END:
+  #+begin_src python :tangle shock-test/cooling_function.py
     DEFAULTS = {
+        "cool_method": "second order",
+        "T_eq": 1.0,
         "cool_rate": 1.0,
-        "cool_slope": 2.2,
-        "heat_slope": -1.0,
+        # Cooling increases steeply with temperature
+        "cool_slope": 2.3,
+        # Heating decreases gradually with temperature
+        "heat_slope": -0.5,
+        # Monatomic ideal gas
         "gamma": 5/3,
         "gamma1": 2/3,
     }
@@ -217,8 +227,26 @@ CLOSED: [2024-12-07 Sat 11:45]
 
 
     def cooling_source_term_step(solver, state, dt):
+        """Apply radiative heating and cooling over timestep
+
+        For use with classic-type Clawpack solvers, for example:
+        
+              solver.step_source = cooling_source_term_step
+
+        Heating and cooling are both proportional to density squared, and
+        are power-law functions of temperature, with power-law indices
+        given by the `cool_slope` and `heat_slope` parameters (all
+        parameters can be set via the `state.problem_data` dictionary).
+        The equilibrium temperature (where heating = cooling) is given by
+        the `T_eq` parameter.  The cooling rate (energy/time) for
+        density=1 and temperature=T_eq is given by the `cool_rate`
+        parameter.  The cooling method can be either "first order" or
+        "second order".
+        """
         # Attempt to get the cooling parameters from the state, with
         # fallback to the defaults
+        cool_method = state.problem_data.get("cool_method", DEFAULTS["cool_method"])
+        T_eq = state.problem_data.get("T_eq", DEFAULTS["T_eq"])
         cool_rate = state.problem_data.get("cool_rate", DEFAULTS["cool_rate"])
         cool_slope = state.problem_data.get("cool_slope", DEFAULTS["cool_slope"])
         heat_slope = state.problem_data.get("heat_slope", DEFAULTS["heat_slope"])
@@ -230,15 +258,41 @@ CLOSED: [2024-12-07 Sat 11:45]
         velocity = state.q[i_momentum, :] / density
         internal_energy = state.q[i_energy, :] - 0.5 * density * velocity**2
         pressure = gamma1 * internal_energy
+        temperature = pressure / density
 
         # Integrate net (heating - cooling) over the timestep
-        dE = 0.0
-
+        if cool_method == "first order":
+            # Calculate change of energy over timestep (positive for net
+            # heating)
+            dE = dt * cool_rate * density**2 * (
+                (temperature / T_eq) ** heat_slope
+                - (temperature / T_eq) ** cool_slope
+            )
+        elif cool_method == "second order":
+            # Take half timestep at constant density
+            dE2 = 0.5 * dt * cool_rate * density**2 * (
+                 (temperature / T_eq) ** heat_slope
+                - (temperature / T_eq) ** cool_slope
+            )
+            # Recalculate temperature after half timestep
+            internal_energy += dE2
+            temperature = pressure / density
+            # Then take the full timestep
+            dE = dt * cool_rate * density**2 * (
+                (temperature / T_eq) ** heat_slope
+                - (temperature / T_eq) ** cool_slope
+            )
+        elif cool_method == "exact":
+            raise NotImplementedError("Exact cooling is not implemented yet")
+        else:
+            raise ValueError(f"Unknown cooling method: {cool_method}")
+        
         # Modify the energy of the state
         state.q[i_energy, :] += dE
 
         return None
   #+end_src
+*** Test the cooling function in a notebook
 *** Earlier investigations
 - I have been looking at the source code in [[file:../clawpack_src/pyclaw/src/pyclaw/]] and it looks like it might be easy
 - There is a function in [[file:../clawpack_src/pyclaw/src/pyclaw/solver.py::def before_step(solver,solution):][solver.py]] called ~before_step~ that is called before each time step
