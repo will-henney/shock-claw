@@ -34,7 +34,7 @@ def __(mo):
 
 @app.cell
 def __(cooling_function, domain, pyclaw, riemann):
-    _ = domain # re-create if domain changes
+    _ = domain  # re-create if domain changes
     solver = pyclaw.ClawSolver1D(riemann.euler_1D_py.euler_roe_1D)
     solver.kernel_language = "Python"
     solver.bc_lower[0] = pyclaw.BC.extrap
@@ -47,7 +47,9 @@ def __(cooling_function, domain, pyclaw, riemann):
 @app.cell(hide_code=True)
 def __(mo):
     mo.callout(
-        mo.md("**The new thing here is that I have added my cooling function as a custom source term**"),
+        mo.md(
+            "**The new thing here is that I have added my cooling function as a custom source term**"
+        ),
         kind="info",
     )
     return
@@ -95,7 +97,13 @@ def __(mo):
 @app.cell
 def __(i_density, i_energy, i_momentum, np):
     def shock_tube_initialize_state(
-        state, rho_l=1.0, rho_r=1.0, v_l=1.0, v_r=-1.0, p_l=1.0, p_r=1.0,
+        state,
+        rho_l=1.0,
+        rho_r=1.0,
+        v_l=1.0,
+        v_r=-1.0,
+        p_l=1.0,
+        p_r=1.0,
     ):
         """Set up initial conditions for shock tube problem with left and right density, velocity, pressure.
 
@@ -159,6 +167,19 @@ def __(mo):
 
 
 @app.cell
+def __():
+    varnames = [
+        "density",
+        "velocity",
+        "pressure",
+        "temperature",
+        "sound speed",
+        "mach number",
+    ]
+    return (varnames,)
+
+
+@app.cell
 def __(i_density, i_energy, i_momentum, np):
     def primitives(state):
         "Return a state's primitive variables: density, velocity, pressure"
@@ -173,7 +194,27 @@ def __(i_density, i_energy, i_momentum, np):
     def sound_speed(state):
         density, velocity, pressure = primitives(state)
         return np.sqrt(state.problem_data["gamma"] * pressure / density)
-    return primitives, sound_speed
+
+
+    def get_variables_dict(state):
+        "Return a dict of all primitive and derived variables"
+        density = state.q[i_density, :]
+        velocity = state.q[i_momentum, :] / density
+        pressure = state.problem_data["gamma1"] * (
+            state.q[i_energy, :] - 0.5 * density * velocity**2
+        )
+        temperature = pressure / density
+        sound_speed = np.sqrt(state.problem_data["gamma"] * pressure / density)
+        mach_number = np.abs(velocity / sound_speed)
+        return {
+            "density": density,
+            "velocity": velocity,
+            "pressure": pressure,
+            "temperature": temperature,
+            "sound speed": sound_speed,
+            "mach number": mach_number,
+        }
+    return get_variables_dict, primitives, sound_speed
 
 
 @app.cell(hide_code=True)
@@ -284,6 +325,15 @@ def __(mo):
         value=800,
         label=r"Number of cells",
     )
+    run_parameters = [
+        NCELLS,
+        GAMMA,
+        VELOCITY,
+        COOL_METHOD,
+        COOL_RATE,
+        COOL_SLOPE,
+        EQUILIBRIUM_TEMPERATURE,
+    ]
     return (
         COOL_METHOD,
         COOL_RATE,
@@ -292,6 +342,7 @@ def __(mo):
         GAMMA,
         NCELLS,
         VELOCITY,
+        run_parameters,
     )
 
 
@@ -302,7 +353,7 @@ def __(ITIME, NCELLS, controller, np, pd, primitives):
     _x = _state.grid.x.centers
 
 
-    def tidy(col, step=NCELLS.value//20, precision=3):
+    def tidy(col, step=NCELLS.value // 20, precision=3):
         return np.round(col[slice(None, None, step)], precision)
 
 
@@ -320,70 +371,104 @@ def __(ITIME, NCELLS, controller, np, pd, primitives):
 
 @app.cell
 def __(
-    COOL_METHOD,
-    COOL_RATE,
-    COOL_SLOPE,
-    EQUILIBRIUM_TEMPERATURE,
-    GAMMA,
     ITIME,
-    NCELLS,
-    VELOCITY,
     controller,
+    get_variables_dict,
     mo,
-    np,
     plt,
-    primitives,
+    run_parameters,
     sns,
-    sound_speed,
 ):
-    fig, axes = plt.subplots(6, 1, sharex=True)
     # get the state at the current time
-    _state = controller.frames[ITIME.value].state
-    _x = _state.grid.x.centers
-    _d, _v, _p = primitives(_state)
-    _a = sound_speed(_state)
-    _T = _p / _d
+    _this_state = controller.frames[ITIME.value].state
+    _x = _this_state.grid.x.centers
+    _dependent_variables = get_variables_dict(_this_state)
 
-    _ke = 0.5 * _d * _v**2
-    _ie = _p / _state.problem_data["gamma1"]
-    _m = np.abs(_v) / _a
-
-    axes[0].plot(_x, _d, label="density")
-    axes[1].plot(_x, _v, label="velocity")
-    axes[2].plot(_x, _p, label="pressure")
-    axes[3].plot(_x, _T, label="temperature")
-    axes[4].plot(_x, _a, label="sound speed")
-    axes[5].plot(_x, _m, label="mach")
-
-    for ax in axes:
-        ax.axvline(0.0, color="k", ls="dotted")
-        # ax.axhline(0.0, color="k", ls="dotted")
-        ax.legend(loc="lower left", ncol=2)
-        ax.set(
-        #    ylim=[-1.1, 5.1],
+    # Plot all the variables
+    _nplots = len(_dependent_variables)
+    _fig, _axes = plt.subplots(_nplots, 1, sharex=True)
+    _colors = sns.color_palette(n_colors=_nplots)
+    for _ax, _varname, _color in zip(_axes, _dependent_variables, _colors):
+        _ax.plot(_x, _varname, data=_dependent_variables, color=_color)
+        _ax.axvline(0.0, color="k", ls="dotted")
+        _ax.legend(loc="lower left", ncol=2)
+        _ax.set(
             ylim=[None, None],
-        #    yscale="symlog",
         )
-    sns.despine(fig)
+    _axes[-1].set_xlabel("Position, $x$")
+    sns.despine(_fig)
+
+    # Show figure by the side of parameter picker UI elements
     mo.hstack(
         [
-            fig,
+            _fig,
             mo.vstack(
                 [
                     ITIME,
-                    mo.md(f"Time = {_state.t:.3f}"),
-                    NCELLS,
-                    GAMMA,
-                    VELOCITY,
-                    COOL_METHOD,
-                    COOL_RATE,
-                    COOL_SLOPE,
-                    EQUILIBRIUM_TEMPERATURE,
+                    mo.md(f"Time = {_this_state.t:.3f}"),
+                    run_parameters
                 ]
             ),
         ]
     )
-    return ax, axes, fig
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md("""## Two-dimensional space-time arrays""")
+    return
+
+
+@app.cell
+def __(NCELLS, controller, get_variables_dict, np, varnames):
+    _nt, _nx = controller.num_output_times, NCELLS.value
+    grids = {_varname: np.empty((_nt, _nx)) for _varname in varnames}
+    for _i in range(_nt):
+        _state = controller.frames[_i].state
+        _variables = get_variables_dict(_state)
+        for _varname in varnames:
+            grids[_varname][_i, :] = _variables[_varname]
+    grids
+    return (grids,)
+
+
+@app.cell
+def __(matplotlib, mo, varnames):
+    VARIABLE = mo.ui.dropdown(
+        options=varnames, value="density", label="Dependent variable:"
+    )
+    COLORMAP = mo.ui.dropdown(
+        options=list(matplotlib.colormaps), value="viridis", label="Color map:"
+    )
+    return COLORMAP, VARIABLE
+
+
+@app.cell
+def __(COLORMAP, VARIABLE, grids, mo, plt, run_parameters):
+    _fig, _ax = plt.subplots()
+    _im = _ax.imshow(
+        grids[VARIABLE.value], 
+        origin="lower", aspect="auto", extent=[-1, 1, 0, 1], cmap=COLORMAP.value,
+    )
+    _fig.colorbar(_im)
+    _ax.set_title(VARIABLE.value)
+    _ax.set_xlabel("Position, $x$")
+    _ax.set_ylabel("Time, $t$")
+    mo.hstack([_fig, mo.vstack([VARIABLE, COLORMAP, mo.md("**Run parameters:**").center(), run_parameters])])
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md(
+        r"""
+        ## Isothermal Mach number of the fully-radiative shock
+
+        For cases where we cool right down to the equilibrium temperature after the shock, with zero velocity, then the total velocity change across the isothermal shock is equal to the inflow velocity, and sould be equal to the isothermal sound speed (1 in code units) times $M_0 - M_0^{-1}$, where $M_0$ is the isothermal Mach number of the shock
+        """
+    )
+    return
 
 
 @app.cell(hide_code=True)
@@ -417,6 +502,7 @@ def __():
     )
     from clawpack.pyclaw import plot
     import numpy as np
+    import matplotlib
     import matplotlib.pyplot as plt
     import seaborn as sns
     import pandas as pd
@@ -427,6 +513,7 @@ def __():
         i_density,
         i_energy,
         i_momentum,
+        matplotlib,
         np,
         pd,
         plot,
