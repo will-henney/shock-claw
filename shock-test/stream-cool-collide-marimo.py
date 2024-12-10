@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.9.32"
+__generated_with = "0.9.33"
 app = marimo.App(width="medium")
 
 
@@ -32,16 +32,18 @@ def __(mo):
     return
 
 
-@app.cell
-def __(cooling_function, domain, pyclaw, riemann):
-    _ = domain  # re-create if domain changes
+app._unparsable_cell(
+    r"""
+     _ = domain  # re-create if domain changes
     solver = pyclaw.ClawSolver1D(riemann.euler_1D_py.euler_roe_1D)
-    solver.kernel_language = "Python"
+    solver.kernel_language = \"Python\"
     solver.bc_lower[0] = pyclaw.BC.extrap
     solver.bc_upper[0] = pyclaw.BC.extrap
     solver.step_source = cooling_function.cooling_source_term_step
     solver
-    return (solver,)
+    """,
+    name="__"
+)
 
 
 @app.cell(hide_code=True)
@@ -133,9 +135,9 @@ def __(
     COOL_SLOPE,
     EQUILIBRIUM_TEMPERATURE,
     GAMMA,
-    VELOCITY,
     domain,
     pyclaw,
+    shock,
     shock_tube_initialize_state,
     solver,
 ):
@@ -154,8 +156,17 @@ def __(
     state.problem_data["T_eq"] = EQUILIBRIUM_TEMPERATURE.value
 
 
-    # Use oppositely directed velocities
-    shock_tube_initialize_state(state, v_l=VELOCITY.value, v_r=-VELOCITY.value)
+    # Use oppositely directed velocities and aim for a post-cooled density of 1
+    # shock_tube_initialize_state(state, v_l=VELOCITY.value, v_r=-VELOCITY.value)
+    shock_tube_initialize_state(
+        state,
+        rho_l=1 / shock.R_2,
+        p_l=1 / shock.R_2,
+        v_l=shock.U_jump,
+        rho_r=1 / shock.R_2,
+        p_r=1 / shock.R_2,
+        v_r=-shock.U_jump,
+    )
     state
     return (state,)
 
@@ -325,15 +336,6 @@ def __(mo):
         value=800,
         label=r"Number of cells",
     )
-    run_parameters = [
-        NCELLS,
-        GAMMA,
-        VELOCITY,
-        COOL_METHOD,
-        COOL_RATE,
-        COOL_SLOPE,
-        EQUILIBRIUM_TEMPERATURE,
-    ]
     return (
         COOL_METHOD,
         COOL_RATE,
@@ -342,8 +344,30 @@ def __(mo):
         GAMMA,
         NCELLS,
         VELOCITY,
-        run_parameters,
     )
+
+
+@app.cell
+def __(
+    COOL_METHOD,
+    COOL_RATE,
+    COOL_SLOPE,
+    EQUILIBRIUM_TEMPERATURE,
+    GAMMA,
+    MACH,
+    NCELLS,
+):
+    run_parameters = [
+        NCELLS,
+        GAMMA,
+        # VELOCITY,
+        MACH,
+        COOL_METHOD,
+        COOL_RATE,
+        COOL_SLOPE,
+        EQUILIBRIUM_TEMPERATURE,
+    ]
+    return (run_parameters,)
 
 
 @app.cell
@@ -377,6 +401,7 @@ def __(
     mo,
     plt,
     run_parameters,
+    shock,
     sns,
 ):
     # get the state at the current time
@@ -406,7 +431,8 @@ def __(
                 [
                     ITIME,
                     mo.md(f"Time = {_this_state.t:.3f}"),
-                    run_parameters
+                    run_parameters,
+                    vars(shock),
                 ]
             ),
         ]
@@ -445,17 +471,34 @@ def __(matplotlib, mo, varnames):
 
 
 @app.cell
-def __(COLORMAP, VARIABLE, grids, mo, plt, run_parameters):
+def __(COLORMAP, VARIABLE, grids, mo, plt, run_parameters, shock):
     _fig, _ax = plt.subplots()
     _im = _ax.imshow(
-        grids[VARIABLE.value], 
-        origin="lower", aspect="auto", extent=[-1, 1, 0, 1], cmap=COLORMAP.value,
+        grids[VARIABLE.value],
+        origin="lower",
+        aspect="auto",
+        extent=[-1, 1, 0, 1],
+        cmap=COLORMAP.value,
     )
     _fig.colorbar(_im)
     _ax.set_title(VARIABLE.value)
     _ax.set_xlabel("Position, $x$")
     _ax.set_ylabel("Time, $t$")
-    mo.hstack([_fig, mo.vstack([VARIABLE, COLORMAP, mo.md("**Run parameters:**").center(), run_parameters])])
+    mo.hstack(
+        [
+            _fig,
+            mo.vstack(
+                [
+                    VARIABLE,
+                    COLORMAP,
+                    mo.md("**Run parameters:**").center(),
+                    run_parameters,
+                    mo.md("**Shock conditions:**").center(),
+                    vars(shock),
+                ]
+            ),
+        ]
+    )
     return
 
 
@@ -465,10 +508,105 @@ def __(mo):
         r"""
         ## Isothermal Mach number of the fully-radiative shock
 
-        For cases where we cool right down to the equilibrium temperature after the shock, with zero velocity, then the total velocity change across the isothermal shock is equal to the inflow velocity, and sould be equal to the isothermal sound speed (1 in code units) times $M_0 - M_0^{-1}$, where $M_0$ is the isothermal Mach number of the shock
+        For cases where we cool right down to the equilibrium temperature after the shock, with zero velocity (from symmetry at the midplane), then the total velocity change across the isothermal shock is equal to the inflow velocity, $U$.  This should be equal to the isothermal sound speed (1 in code units) times $M_0 - M_0^{-1}$, where $M_0$ is the isothermal Mach number of the shock, so that
+
+        \[
+            M_0 = 0.5 \left(U + (U^2 + 4)^{1/2}\right) 
+            = \left[1 + \left(\frac{U}{2}\right)^{\!\!2}\right]^{1/2} + \frac{U}{2}
+        \]
         """
     )
     return
+
+
+@app.cell
+def __(mo):
+    mo.md(
+        r"""
+        ### Normalise to the post-cooled state
+
+        In order to check that the cooling lengths come out roughly constant, we need to do the teleological normalization to the final post-cooled density, \(\rho_2\)
+        """
+    )
+    return
+
+
+@app.cell
+def __(np):
+    class ShockConditions:
+        """Jump conditions for a radiative shock
+
+        Terminology:
+            0 = upstream state
+            1 = immediate post-shock state
+            2 = post-cooling state
+            i = isothermal
+            a = adiabatic
+        """
+
+        # Class parameters
+        GAMMA = 5.0 / 3.0
+
+        def __init__(self, mach_i_0):
+            "Radiative shock with isothermal Mach number `mach_i_0`"
+            assert mach_i_0 >= 1.0, "Mach number cannot be less than unity"
+            self.mach_i_0 = mach_i_0
+            G = self.GAMMA
+            # Convenience constants: G13 = 1/3 and G5 = 5 for GAMMA = 5/3
+            G13 = (G - 1) / 2
+            G5 = 2 * G / (G - 1)
+            # Adiabatic Mach number
+            self.mach_a_0 = mach_i_0 / np.sqrt(G)
+            M0sq = self.mach_a_0**2  # Save square for convenience
+            # Final compression ratio: rho_2 / rho_0
+            self.R_2 = mach_i_0**2
+            if self.mach_a_0 >= 1.0:
+                # Immediate post-shock compression ratio: rho_1 / rho_0
+                self.R_1 = (G + 1) * M0sq / ((G - 1) * M0sq + 2)
+                # Immediate post-shock temperature
+                self.T_1 = (1 + G13 * M0sq) * (G5 - 1 / M0sq) / (G13 + G5)
+                # Immediate post-shock pressure ratio: p_1 / p_0
+                self.p_1 = (2 * G * M0sq - (G - 1)) / (G + 1)
+            else:
+                # Case of quasi-shocks
+                self.R_1 = self.T_1 = self.p_1 = 1.0
+            # Velocity jump across shock in units of isothermal sound speed
+            self.U_jump = self.mach_i_0 - 1 / self.mach_i_0
+
+            assert np.is_close(self.p_1, self.R_1 * self.T_1)
+    return (ShockConditions,)
+
+
+@app.cell
+def __(MACH):
+    MACH
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md(r"""Set up a ui element `MACH` to specify the shock strength and a global variable `shock` to hold the correpsonding data, which we can then use for the initia conditions of the simulation.""")
+    return
+
+
+@app.cell
+def __(MACH, ShockConditions):
+    # shock = ShockConditions(1.01*np.sqrt(5/3))
+    shock = ShockConditions(MACH.value)
+    vars(shock)
+    return (shock,)
+
+
+@app.cell
+def __(mo):
+    MACH = mo.ui.number(
+        start=1.01,
+        stop=10.0,
+        step=0.01,
+        value=2.0,
+        label=r"Shock isothermal Mach number",
+    )
+    return (MACH,)
 
 
 @app.cell(hide_code=True)
