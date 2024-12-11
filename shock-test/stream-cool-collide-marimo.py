@@ -32,18 +32,16 @@ def __(mo):
     return
 
 
-app._unparsable_cell(
-    r"""
-     _ = domain  # re-create if domain changes
+@app.cell
+def __(cooling_function, domain, pyclaw, riemann):
+    _ = domain  # re-create if domain changes
     solver = pyclaw.ClawSolver1D(riemann.euler_1D_py.euler_roe_1D)
-    solver.kernel_language = \"Python\"
+    solver.kernel_language = "Python"
     solver.bc_lower[0] = pyclaw.BC.extrap
     solver.bc_upper[0] = pyclaw.BC.extrap
     solver.step_source = cooling_function.cooling_source_term_step
     solver
-    """,
-    name="__"
-)
+    return (solver,)
 
 
 @app.cell(hide_code=True)
@@ -279,7 +277,7 @@ def __(controller, mo):
         start=0,
         stop=controller.num_output_times,
         step=1,
-        value=0,
+        value=100,
         label="Timestep",
         debounce=True,
     )
@@ -305,9 +303,9 @@ def __(mo):
     )
     COOL_RATE = mo.ui.number(
         start=0.0,
-        stop=100.0,
+        stop=1000.0,
         step=0.1,
-        value=1.0,
+        value=10.0,
         label=r"Cooling rate",
     )
     EQUILIBRIUM_TEMPERATURE = mo.ui.number(
@@ -320,7 +318,7 @@ def __(mo):
     COOL_SLOPE = mo.ui.number(
         start=-0.5,
         stop=5.0,
-        step=0.1,
+        step=0.01,
         value=2.3,
         label=r"Cooling steepness",
     )
@@ -442,7 +440,12 @@ def __(
 
 @app.cell
 def __(mo):
-    mo.md("""## Two-dimensional space-time arrays""")
+    mo.md(
+        """
+
+                                    ## Two-dimensional space-time arrays
+        """
+    )
     return
 
 
@@ -573,7 +576,7 @@ def __(np):
             # Velocity jump across shock in units of isothermal sound speed
             self.U_jump = self.mach_i_0 - 1 / self.mach_i_0
 
-            assert np.is_close(self.p_1, self.R_1 * self.T_1)
+            assert np.isclose(self.p_1, self.R_1 * self.T_1)
     return (ShockConditions,)
 
 
@@ -607,6 +610,11 @@ def __(mo):
         label=r"Shock isothermal Mach number",
     )
     return (MACH,)
+
+
+@app.cell
+def __():
+    return
 
 
 @app.cell(hide_code=True)
