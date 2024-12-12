@@ -20,11 +20,17 @@ def __(mo):
     return
 
 
+@app.cell
+def __(mo):
+    mo.md("""## Components of the Clawpack simulation""")
+    return
+
+
 @app.cell(hide_code=True)
 def __(mo):
     mo.md(
         """
-        ## The Solver
+        ### The Solver
 
         Use the python version of the Roe solver for now. And the boundary conditions seem to be outflow. I am taking the ones from the Sod shock problem.
         """
@@ -34,7 +40,7 @@ def __(mo):
 
 @app.cell
 def __(cooling_function, domain, pyclaw, riemann):
-    _ = domain  # re-create if domain changes
+    _ = domain  # re-create the solver if the domain should ever change
     solver = pyclaw.ClawSolver1D(riemann.euler_1D_py.euler_roe_1D)
     solver.kernel_language = "Python"
     solver.bc_lower[0] = pyclaw.BC.extrap
@@ -59,7 +65,7 @@ def __(mo):
 def __(mo):
     mo.md(
         r"""
-        ## The Domain
+        ### The Domain
 
         In the shocktube.py example, we have an extra layer of objects. Instead of just instantiating the Domain, we have a Dimension inside a Domain
         """
@@ -84,7 +90,7 @@ def __():
 def __(mo):
     mo.md(
         r"""
-        ## The State and its initial conditions
+        ### The State and its initial conditions
 
         This is also done differently to in the acoustics example. Rather than instantiating a Solution and then taking the .state property of that, we first instantiate the State, 
 
@@ -228,7 +234,13 @@ def __(i_density, i_energy, i_momentum, np):
 
 @app.cell(hide_code=True)
 def __(mo):
-    mo.md(r"""### The controller""")
+    mo.md(
+        r"""
+        ### The Controller and the Solution
+
+        The Controler is what takes charge of running the simulation. It contains a Solution, which is intialised from the State and the Domain
+        """
+    )
     return
 
 
@@ -581,12 +593,6 @@ def __(np):
 
 
 @app.cell
-def __(MACH):
-    MACH
-    return
-
-
-@app.cell
 def __(mo):
     mo.md(r"""Set up a ui element `MACH` to specify the shock strength and a global variable `shock` to hold the correpsonding data, which we can then use for the initia conditions of the simulation.""")
     return
@@ -613,8 +619,226 @@ def __(mo):
 
 
 @app.cell
-def __():
+def __(MACH):
+    MACH
     return
+
+
+@app.cell
+def __(mo):
+    mo.md(
+        r"""
+        ## Calculate histograms of temperature
+
+        We weight by the density squared times the spatial cell size, so as to get the differential emission measure. Then we divide by the bin width get the right normalization, with units of EM per Temperature interval. 
+        """
+    )
+    return
+
+
+@app.cell
+def __(get_variables_dict, np, pyclaw):
+    def get_DEM(
+        state: pyclaw.State,
+        Tlim: tuple[float | None, float | None] = (None, None),
+        nbins: int = 50,
+    ):
+        """Get the differential emission measure of `state`"""
+        variables = get_variables_dict(state)
+        rho = variables["density"]
+        T = variables["temperature"]
+        dx = state.patch.x.delta
+        Tmin, Tmax = Tlim
+        if Tmin is None:
+            Tmin = np.min(T)
+        if Tmax is None:
+            Tmax = np.max(T)
+        weights = dx * rho**2
+        H, edges = np.histogram(
+            T, weights=weights, density=False, bins=nbins, range=(Tmin, Tmax)
+        )
+        # Divide by bin widths
+        bin_widths = edges[1:] - edges[0:-1]
+        H /= bin_widths
+        # Calculate bin centers
+        Tgrid = (edges[:-1] + edges[1:]) / 2
+        # Check that the normalization is correct (this will fail if [Tmin, Tmax] does not include all cells)
+        # integral_dT = np.trapezoid(H, Tgrid) # TRAPEZOID VERSION DOES NOT WORK
+        # integral_dx = np.trapezoid(rho ** 2, state.patch.x.centers)
+        integral_dT = np.sum(H * bin_widths)
+        integral_dx = np.sum(weights)
+        assert (
+            np.isclose(integral_dT, integral_dx, rtol=0.01),
+            f"Mismatched integrals at time {state.t:.2f}: {integral_dT:.3f} {integral_dx:.3f}",
+        )
+        return {"T": Tgrid, "DEM": H * (Tmax - Tmin), "edges": edges}
+    return (get_DEM,)
+
+
+@app.cell
+def __(ITIME, controller, get_DEM):
+    _this_state = controller.frames[ITIME.value].state
+    get_DEM(_this_state)
+    return
+
+
+@app.cell
+def __(ITIME, controller):
+    current_state = controller.frames[ITIME.value].state
+    current_state.patch.x.centers
+    return (current_state,)
+
+
+@app.cell
+def __(domain):
+    cell_size = domain.grid.dimensions[0].delta
+    return (cell_size,)
+
+
+@app.cell
+def __(mo):
+    mo.md(r"""Parameters for the DEM plot. We wrap it in a form so that we can set all the parameters and then replot.""")
+    return
+
+
+@app.cell
+def __(matplotlib, mo):
+    DEM_PARAMS = mo.md("""
+        **Histogram parameters.**
+
+        {palette}
+
+        {xscale} {yscale}
+
+        {nbins} 
+        
+        {exponent} 
+        
+        {norm} 
+        
+        {core}
+        """).batch(
+        palette=mo.ui.dropdown(
+            options=list(matplotlib.colormaps),
+            value="turbo",
+            label="Color palette:",
+        ),
+        xscale=mo.ui.dropdown(
+            options=["linear", "log"], value="linear", label="x-axis scale:"
+        ),
+        yscale=mo.ui.dropdown(
+            options=["linear", "log"], value="log", label="y-axis scale:"
+        ),
+        nbins=mo.ui.number(start=10, stop=100, value=50, label="\# of bins"),
+        exponent=mo.ui.number(
+            start=1, stop=4, value=2.5, step=0.1, label="power-law slope"
+        ),
+        norm=mo.ui.number(
+            start=0.001, stop=10.0, value=0.5, step=0.001, label="normalization"
+        ),
+        core=mo.ui.number(
+            start=0.001, stop=1.0, value=0.1, step=0.001, label="core / 100"
+        ),
+    )
+
+    DEM_PARAMS_FORM = DEM_PARAMS.form(
+        show_clear_button=True,
+        bordered=True,
+        submit_button_label="Replot",
+        clear_button_label="Reset",
+        clear_button_tooltip="Reset all parameters to default values",
+    )
+    return DEM_PARAMS, DEM_PARAMS_FORM
+
+
+@app.cell
+def __(DEM_PARAMS_FORM):
+    DEM_PARAMS_FORM.value
+    return
+
+
+@app.cell
+def __(
+    DEM_PARAMS,
+    DEM_PARAMS_FORM,
+    MACH,
+    controller,
+    get_DEM,
+    mo,
+    np,
+    plt,
+    shock,
+    sns,
+):
+    if DEM_PARAMS_FORM.value:
+        _params = DEM_PARAMS_FORM.value
+    else:
+        _params = DEM_PARAMS.value
+
+    _fig, _ax = plt.subplots()
+    colors = sns.color_palette(_params["palette"], n_colors=len(controller.frames))
+    for _i, _frame in enumerate(controller.frames):
+        _data = get_DEM(_frame.state, nbins=_params["nbins"])
+        _alpha = 0.3 * np.sqrt(_i / 100)
+        _ax.plot(
+            "T",
+            "DEM",
+            data=_data,
+            color=colors[_i],
+            alpha=_alpha,
+            lw=0.5,
+            # drawstyle="steps-mid",
+        )
+    _vline_style = dict(color="k", lw=1, ls="dotted")
+    _ax.axvline(1.0, **_vline_style)
+    _ax.axvline(shock.T_1, **_vline_style)
+    # Plot limits
+    xmin, xmax = 0.9, 1.1 * shock.T_1
+    if _params["yscale"] == "log":
+        ymin, ymax = 2e-3, 30.0
+    else:
+        ymin, ymax = 0.0, 2.0
+
+    # Show power-law slope
+    xgrid = np.geomspace(xmin, xmax)
+    _q, _A, _w = -_params["exponent"], _params["norm"], _params["core"] / 100
+    ygrid = np.where(
+        xgrid > 1.0,
+        _A * (_w + (xgrid - 1)) ** _q,
+        np.nan,
+    )
+    _ax.plot(xgrid, ygrid, linestyle="dashed", color="k", alpha=0.5)
+
+    _ax.set(
+        xscale=_params["xscale"],
+        yscale=_params["yscale"],
+        xlabel="Temperature: $T / T_0$",
+        ylabel="DEM",
+        xlim=[xmin, xmax],
+        ylim=[ymin, ymax],
+    )
+    _ax.set_title("Differential Emission Measure")
+    sns.despine()
+    mo.hstack(
+        [
+            _fig,
+            mo.vstack(
+                [
+                    DEM_PARAMS_FORM,
+                    mo.md(f"""
+                **Shock parameters:**
+
+                {mo.as_html(vars(shock))}
+                """),
+                    MACH,
+                ],
+                align="center",
+                gap=2,
+            ),
+        ],
+        justify="center",
+    )
+    return colors, xgrid, xmax, xmin, ygrid, ymax, ymin
 
 
 @app.cell(hide_code=True)
@@ -623,7 +847,7 @@ def __(mo):
         r"""
         ## Imports
 
-        Put them at the end because we can
+        Put them all at the endo of the notebooto keep them out of the way
         """
     )
     return

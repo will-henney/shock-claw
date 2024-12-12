@@ -315,6 +315,10 @@ CLOSED: [2024-12-10 Tue 19:34]
     |     |      |       |       |
 #+TBLFM: $2=$1 / sqrt(5/3) ; f2
 *** TODO Histograms of temperature and differential emission measure
+- This is what we need to calculate the variance of the temperature distribution t^2
+- And also to calculate the empirical t^2 from the Peimbert formalism
+- 
+
 *** DONE Estimating the isothermal Mach number of the fully-radiative shock
 CLOSED: [2024-12-10 Tue 19:41]
 - For cases where we cool right down to the equilibrium temperature after the shock, with zero velocity, then the total velocity change across the isothermal shock is equal to the inflow velocity, and should be equal to the isothermal sound speed (1 in code units) times $M_0 - M_0^{-1}$, where $M_0$ is the isothermal Mach number of the shock.
