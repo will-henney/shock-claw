@@ -594,7 +594,7 @@ def __(np):
 
 @app.cell
 def __(mo):
-    mo.md(r"""Set up a ui element `MACH` to specify the shock strength and a global variable `shock` to hold the correpsonding data, which we can then use for the initia conditions of the simulation.""")
+    mo.md(r"""Set up a ui element `MACH` to specify the shock strength and a global variable `shock` to hold the corresptonding data, which we can then use for the initia conditions of the simulation.""")
     return
 
 
@@ -630,7 +630,7 @@ def __(mo):
         r"""
         ## Calculate histograms of temperature
 
-        We weight by the density squared times the spatial cell size, so as to get the differential emission measure. Then we divide by the bin width get the right normalization, with units of EM per Temperature interval. 
+        We weight by the density squared times the spatial cell size, so as to get the differential emission measure. Then we divide by the bin width get the right normalization, with units of EM per Temperature interval. *Now I also mutiply by the total range `Tmax - Tmin` so that the wings are at the same height for the different shock strengths.* So the units are now EM per fraction of T interval. 
         """
     )
     return
@@ -714,9 +714,9 @@ def __(matplotlib, mo):
         
         {exponent} 
         
-        {norm} 
+        {height} 
         
-        {core}
+        {center}
         """).batch(
         palette=mo.ui.dropdown(
             options=list(matplotlib.colormaps),
@@ -733,11 +733,11 @@ def __(matplotlib, mo):
         exponent=mo.ui.number(
             start=1, stop=4, value=2.5, step=0.1, label="power-law slope"
         ),
-        norm=mo.ui.number(
-            start=0.001, stop=10.0, value=0.5, step=0.001, label="normalization"
+        height=mo.ui.number(
+            start=0.01, stop=10.0, value=0.5, step=0.01, label="power-law height"
         ),
-        core=mo.ui.number(
-            start=0.001, stop=1.0, value=0.1, step=0.001, label="core / 100"
+        center=mo.ui.number(
+            start=0.5, stop=1.5, value=1.0, step=0.01, label="power-law center"
         ),
     )
 
@@ -801,10 +801,10 @@ def __(
 
     # Show power-law slope
     xgrid = np.geomspace(xmin, xmax)
-    _q, _A, _w = -_params["exponent"], _params["norm"], _params["core"] / 100
+    _q, _A, _x0 = -_params["exponent"], _params["height"], _params["center"]
     ygrid = np.where(
-        xgrid > 1.0,
-        _A * (_w + (xgrid - 1)) ** _q,
+        xgrid > _x0,
+        _A * (xgrid - _x0) ** _q,
         np.nan,
     )
     _ax.plot(xgrid, ygrid, linestyle="dashed", color="k", alpha=0.5)

@@ -318,7 +318,11 @@ CLOSED: [2024-12-10 Tue 19:34]
 - This is what we need to calculate the variance of the temperature distribution t^2
 - And also to calculate the empirical t^2 from the Peimbert formalism
 - 
-
+**** Initial results from the DEM calculations
+- The DEM curves converge well after the initial incomplete cooling phase
+- It works best with a high resolution simulation with 3200 cells
+- For the faster shocks, it is best with a cooling rate of 10, which gives a cooling length of about 0.2
+  - But for the weaker shocks (M_i < 2), we need a cooling rate of 30 to get the right Mach numbers
 *** DONE Estimating the isothermal Mach number of the fully-radiative shock
 CLOSED: [2024-12-10 Tue 19:41]
 - For cases where we cool right down to the equilibrium temperature after the shock, with zero velocity, then the total velocity change across the isothermal shock is equal to the inflow velocity, and should be equal to the isothermal sound speed (1 in code units) times $M_0 - M_0^{-1}$, where $M_0$ is the isothermal Mach number of the shock.
