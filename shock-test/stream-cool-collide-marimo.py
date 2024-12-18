@@ -452,12 +452,7 @@ def __(
 
 @app.cell
 def __(mo):
-    mo.md(
-        """
-
-                                    ## Two-dimensional space-time arrays
-        """
-    )
+    mo.md("""## Two-dimensional space-time arrays""")
     return
 
 
@@ -697,7 +692,13 @@ def __(domain):
 
 @app.cell
 def __(mo):
-    mo.md(r"""Parameters for the DEM plot. We wrap it in a form so that we can set all the parameters and then replot.""")
+    mo.md(
+        r"""
+        ### Parameters for the DEM plot
+
+        We wrap it in a form so that we can set all the parameters and then replot.
+        """
+    )
     return
 
 
@@ -754,6 +755,12 @@ def __(matplotlib, mo):
 @app.cell
 def __(DEM_PARAMS_FORM):
     DEM_PARAMS_FORM.value
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md(r"""### Plots of the DEM""")
     return
 
 
@@ -841,13 +848,69 @@ def __(
     return colors, xgrid, xmax, xmin, ygrid, ymax, ymin
 
 
+@app.cell
+def __(mo):
+    mo.md(
+        r"""
+        ### Calculate mean temperature and formal \(t^2\) for shock
+
+        To start with, we can do this for the entire grid, and worry about restricting to the cooling zone later
+
+        """
+    )
+    return
+
+
+@app.cell
+def __(get_variables_dict, np, pyclaw):
+    def get_Tstats(
+        state: pyclaw.State,
+        tolerance: float = 0.01,
+        T0: float = 1.0,
+    ):
+        """Get the temperature statistics for `state`"""
+        variables = get_variables_dict(state)
+        rho = variables["density"]
+        T = variables["temperature"]
+        dx = state.patch.x.delta
+        weights = dx * rho**2
+        # Mask for all cells further than `tolerance` away from the equilibrium temperature
+        mask = np.abs(T - T0) > tolerance * T0
+        # Average T and dispersion
+        Tmean = np.average(T, weights=weights)
+        t = (T - Tmean) / Tmean
+        tsquared = np.average(t**2, weights=weights)
+        # Fraction of emission from "hot" cells
+        hotfrac = np.sum(weights[mask]) / np.sum(weights)
+        # Statistics for only masked cells
+        Tmean_hot = np.average(T[mask], weights=weights[mask])
+        t_hot = (T - Tmean_hot) / Tmean_hot
+        tsquared_hot = np.average(t_hot[mask] ** 2, weights=weights[mask])
+
+        return {
+            "T_mean": Tmean,
+            "t^2": tsquared,
+            "hot fraction": hotfrac,
+            "T_mean hot": Tmean_hot,
+            "t^2 hot": tsquared_hot,
+        }
+    return (get_Tstats,)
+
+
+@app.cell
+def __(ITIME, controller, get_Tstats):
+    _this_state = controller.frames[ITIME.value].state
+    get_Tstats(_this_state)
+    return
+
+
 @app.cell(hide_code=True)
 def __(mo):
     mo.md(
         r"""
         ## Imports
 
-        Put them all at the endo of the notebooto keep them out of the way
+        Put them all at the end of the notebook to keep them out of the way
         """
     )
     return
