@@ -865,7 +865,7 @@ def __(mo):
 def __(get_variables_dict, np, pyclaw):
     def get_Tstats(
         state: pyclaw.State,
-        tolerance: float = 0.01,
+        tolerance: float = 0.00001,
         T0: float = 1.0,
     ):
         """Get the temperature statistics for `state`"""
@@ -880,27 +880,126 @@ def __(get_variables_dict, np, pyclaw):
         Tmean = np.average(T, weights=weights)
         t = (T - Tmean) / Tmean
         tsquared = np.average(t**2, weights=weights)
-        # Fraction of emission from "hot" cells
-        hotfrac = np.sum(weights[mask]) / np.sum(weights)
-        # Statistics for only masked cells
-        Tmean_hot = np.average(T[mask], weights=weights[mask])
-        t_hot = (T - Tmean_hot) / Tmean_hot
-        tsquared_hot = np.average(t_hot[mask] ** 2, weights=weights[mask])
-
+        if np.any(mask):
+            # Fraction of emission from "hot" cells
+            hotfrac = np.sum(weights[mask]) / np.sum(weights)
+            # Fraction of zones from "hot" cells
+            hotsize = np.sum(mask) / len(mask)
+            # Statistics for only masked cells
+            Tmean_hot = np.average(T[mask], weights=weights[mask])
+            t_hot = (T - Tmean_hot) / Tmean_hot
+            tsquared_hot = np.average(
+                t_hot[mask] ** 2,
+                weights=weights[mask],
+            )
+        else:
+            hotfrac = hotsize = 0.0
+            Tmean_hot = np.nan
+            tsquared_hot = np.nan
         return {
-            "T_mean": Tmean,
-            "t^2": tsquared,
-            "hot fraction": hotfrac,
+            "T_max": np.max(T),
+            # "T_mean": Tmean,
+            # "t^2": tsquared,
             "T_mean hot": Tmean_hot,
             "t^2 hot": tsquared_hot,
+            "hot fraction": hotfrac,
+            "hot size": hotsize,
         }
     return (get_Tstats,)
 
 
 @app.cell
-def __(ITIME, controller, get_Tstats):
-    _this_state = controller.frames[ITIME.value].state
-    get_Tstats(_this_state)
+def __(current_state, get_Tstats):
+    get_Tstats(current_state)
+    return
+
+
+@app.cell
+def __(current_state, get_variables_dict, pd):
+    pd.DataFrame(
+        get_variables_dict(current_state), index=current_state.patch.x.centers
+    )
+    return
+
+
+@app.cell
+def __(ITIME):
+    ITIME
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md(r"""Gas is considered "cooled" after reaching this percentage difference from the equilibrium temperature""")
+    return
+
+
+@app.cell
+def __(mo):
+    TCOOL_PERCENT = mo.ui.number(
+        start=0.01,
+        stop=10.0,
+        step=0.01,
+        value=1.0,
+        label=r"Cooling criterion as percent difference from equilibrium T",
+    )
+    return (TCOOL_PERCENT,)
+
+
+@app.cell
+def __(get_Tstats, pd):
+    def get_all_Tstats(frames: list, tolerance: float) -> pd.DataFrame:
+        df = pd.DataFrame(
+            [
+                {"time": frame.t, **get_Tstats(frame.state, tolerance=tolerance)}
+                for frame in frames
+            ],
+        )
+        return df
+    return (get_all_Tstats,)
+
+
+@app.cell
+def __(TCOOL_PERCENT, controller, get_all_Tstats):
+    Tstats = get_all_Tstats(
+        controller.frames, tolerance=0.01 * TCOOL_PERCENT.value
+    )
+    Tstats
+    return (Tstats,)
+
+
+@app.cell
+def __(Tstats, np, plt, shock):
+    _fig, _ax = plt.subplots()
+    for _var in Tstats.columns[1:]:
+        _ax.plot("time", _var, data=Tstats, label=_var)
+    _ax.legend(ncol=2)
+    _ax.axhline(1.0, ls="dashed", color="k")
+    _ax.axhline(shock.T_1, ls="dotted", color="k")
+    _ax.set(
+        xlabel="time",
+        yscale="linear",
+        ylim=[0.001, 1.1 * np.max(Tstats["T_max"])],
+    )
+    _fig
+    return
+
+
+@app.cell
+def __(TCOOL_PERCENT):
+    TCOOL_PERCENT
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md(
+        r"""
+        Note that the hot fraction of EM (red line) initially rises as the post-shock zone grows from nothing, but then it falls again, once we start accumulating material in the post-cooling layer. 
+
+        The hot size (fraction of the cells that are hot, purple line) stabilizes after the initial transient phase. This does depend slightly on the `TCOOL_PERCENT` parameter, which sets how close to the equilibrium temperature we need to be in order to be classified as hot. Using 0.1% seems to be reasonable. and is only slightly different from 1%.
+        """
+    )
     return
 
 

@@ -320,7 +320,8 @@ CLOSED: [2024-12-13 Fri 08:24]
 - This is what we need to calculate the variance of the temperature distribution t^2
 - And also to calculate the empirical t^2 from the Peimbert formalism
 - 
-*** Initial results from the DEM calculations
+*** DONE Initial results from the DEM calculations
+CLOSED: [2024-12-18 Wed 21:23]
 - The DEM curves converge well after the initial incomplete cooling phase
 - It works best with a high resolution simulation with 3200 cells
 - For the faster shocks, it is best with a cooling rate of 10, which gives a cooling length of about 0.2
@@ -345,6 +346,12 @@ CLOSED: [2024-12-13 Fri 08:24]
 - Cooling distance \ell_cool are for cooling rate of 10
   - The quasi-shock with M_i = 1.2 was actually run with cooling rate of 20 instead of 10, giving \ell_cool = 0.25, but then rescaled to match the others (this was necessary because with 10 it never gets to the asymptotic state before the final time)
 - Lower velocity shocks (M \lt 2) are not well represented by power laws. Instead they have a bimodal distribution with a secondary peak at T_max
+*** Calculate mean temperature and variance
+- This has a slight dependence on the threshold used to define the end of the cooling zone
+  - I am using 1% as a reasonable compromise value
+- This should all come out in the wash, since if I decrease it to say 0.1% then I decrease the mean temperature in the cooling zone, but at the same time I increase the width of the cooling zone
+  - In principle, these should cancel out when it comes to estimating the global t^2 for the nebula
+- This is a more objective way of defining the \ell_cool that I estimated by eye in the above table
 
 *** DONE Estimating the isothermal Mach number of the fully-radiative shock
 CLOSED: [2024-12-10 Tue 19:41]
@@ -374,6 +381,12 @@ CLOSED: [2024-12-10 Tue 19:41]
   #+TBLFM: $2=0.5 ($1 + sqrt($1**2 + 4));f3::$3=$2/sqrt(5/3);f3::$4=$3<1?1.0:4 $3**2 / ($3**2 + 3);f3::$5=$2**2;f3::$6=$3<1?1.0:(1/16) (5 $3**2 - 1) (1 + 3/$3**2);f3::$7=$2 - $1;f3::$8=$2/$5;f3
 
   
+*** TODO [#A] Production runs of the shock models
+- Think of a way of saving the output
+  - Or take advantage of the output that is already saved
+- Do runs with 3200 cells for a series of different shock velocities:
+  - 1.2, 1.3, 1.5, 2.0, 2.5, 3.0, 3.5, ..., 7.0
+
 *** Earlier investigations
 - I have been looking at the source code in [[file:../clawpack_src/pyclaw/src/pyclaw/]] and it looks like it might be easy
 - There is a function in [[file:../clawpack_src/pyclaw/src/pyclaw/solver.py::def before_step(solver,solution):][solver.py]] called ~before_step~ that is called before each time step
@@ -386,5 +399,6 @@ CLOSED: [2024-12-10 Tue 19:41]
     - So it has access to the base state, which includes all the variables that I need
 - On the other hand, the docs mention that source terms are added via a routine called ~src~
   - But this is for the fortran version. I need to check what is the equivalent in pyclaw
+
 ** TODO Plotting and animation
 - For animation, see [[http://www.clawpack.org/gallery/_static/apps/notebooks/visclaw/animation_tools_demo.html][this page]]
