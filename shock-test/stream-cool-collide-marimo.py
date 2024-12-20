@@ -254,7 +254,9 @@ def __(domain, pyclaw, solver, state):
 
     # Make sure we keep the intermediate time solutions
     controller.keep_copy = True
-
+    controller.output_format = "ascii"
+    # Bad idea to change from default of "fort" due to bug
+    # controller.output_file_prefix = "shock"
     status = controller.run()
     status
     return controller, status
@@ -263,11 +265,6 @@ def __(domain, pyclaw, solver, state):
 @app.cell
 def __(mo):
     mo.md(r""" """)
-    return
-
-
-@app.cell
-def __():
     return
 
 
@@ -625,7 +622,7 @@ def __(mo):
         r"""
         ## Calculate histograms of temperature
 
-        We weight by the density squared times the spatial cell size, so as to get the differential emission measure. Then we divide by the bin width get the right normalization, with units of EM per Temperature interval. *Now I also mutiply by the total range `Tmax - Tmin` so that the wings are at the same height for the different shock strengths.* So the units are now EM per fraction of T interval. 
+        We weight by the density squared times the spatial cell size, so as to get the differential emission measure. Then we divide by the bin width get the right normalization, with units of EM per Temperature interval. *Now I also mutiply by the total range `Tmax - Tmin` so that the wings are at the same height for the different shock strengths.* So the units are now EM per fraction of T interval.
         """
     )
     return
@@ -712,11 +709,11 @@ def __(matplotlib, mo):
         {xscale} {yscale}
 
         {nbins} 
-        
+
         {exponent} 
-        
+
         {height} 
-        
+
         {center}
         """).batch(
         palette=mo.ui.dropdown(
@@ -855,7 +852,6 @@ def __(mo):
         ### Calculate mean temperature and formal \(t^2\) for shock
 
         To start with, we can do this for the entire grid, and worry about restricting to the cooling zone later
-
         """
     )
     return
@@ -1003,6 +999,35 @@ def __(mo):
     return
 
 
+@app.cell
+def __(mo):
+    mo.md(r"""## I/O of solutions""")
+    return
+
+
+@app.cell
+def __(pyclaw):
+    def save_all_frames(
+        controller: pyclaw.Controller,
+    ):
+        """Write to disk all the Solutions in a list of frames"""
+        for itime, solution in enumerate(controller.frames):
+            solution.write(
+                itime, 
+                file_format=controller.output_format, 
+                path=controller.outdir, 
+                file_prefix=controller.output_file_prefix,
+                options=controller.output_options,
+            )
+    return (save_all_frames,)
+
+
+@app.cell
+def __():
+    #save_all_frames(controller, file_prefix=f"shock-M{shock.mach_i_0:02d}")
+    return
+
+
 @app.cell(hide_code=True)
 def __(mo):
     mo.md(
@@ -1038,9 +1063,11 @@ def __():
     import matplotlib.pyplot as plt
     import seaborn as sns
     import pandas as pd
+    from pathlib import Path
 
     import cooling_function
     return (
+        Path,
         cooling_function,
         i_density,
         i_energy,
