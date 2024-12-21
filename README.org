@@ -439,7 +439,7 @@ Make sure that Emacs does not have the conda virtual environment turned on
 : Python 3.12.6
 
 #+begin_src sh :results verbatim :dir shock-test
-  uv run python shock_control.py --help
+  uv run shock_control.py --help
 #+end_src
 
 #+RESULTS:
@@ -462,6 +462,12 @@ Make sure that Emacs does not have the conda virtual environment turned on
 
 #+end_example
 
+#+begin_src sh :results verbatim :dir shock-test
+  uv run shock_control.py --mach-number 2.5
+#+end_src
+
+#+RESULTS:
+: shock-Ma-2.5-Lambda-10.0-q-2.3-N-0800
 
 *** 
 

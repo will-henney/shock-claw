@@ -1,3 +1,4 @@
+import sys
 import typer
 from clawpack import pyclaw, riemann
 from clawpack.riemann.euler_with_efix_1D_constants import (
@@ -84,10 +85,20 @@ def main(
         ncells: int = typer.Option(800, help="Number of cells in the domain"),
         cool_rate: float = typer.Option(10.0, help="Post-shock cooling rate in code units"),
         cool_slope: float = typer.Option(2.3, help="Power-law slope of the cooling function"),
+        output_format: str = typer.Option("hdf5", help="Output format for the simulation"),
 ):
     """Carry out colliding stream simulation with radiative cooling."""
     # Get the shock jump conditions
     shock = ShockConditions(mach_number)
+
+    model_id = (
+        f"shock-Ma-{mach_number:.1f}"
+        f"-Lambda-{cool_rate:04.1f}"
+        f"-q-{cool_slope:.1f}"
+        f"-N-{ncells:04d}"
+    )
+
+    print(model_id)
     
     # Solver and boundary conditions
     solver = pyclaw.ClawSolver1D(riemann.euler_1D_py.euler_roe_1D)
@@ -120,10 +131,22 @@ def main(
         p_r=1 / shock.R_2,
         v_r=-shock.U_jump,
     )
+
+    # Set up the controller
+    controller = pyclaw.Controller()
+    controller.solution = pyclaw.Solution(state, domain)
+    controller.solver = solver
+    controller.tfinal = 1.0
+    controller.num_output_times = 100
+
+    # Make sure we keep the intermediate time solutions
+    controller.keep_copy = True
+    controller.output_format = output_format
+    # Bad idea to change from default of "fort" due to bug
+    # controller.output_file_prefix = "shock"
+    controller.outdir = f"shock-output/{model_id}"
+    status = controller.run()    
       
- 
-    
-    typer.echo("Hello World")
 
 
 if __name__ == '__main__':
