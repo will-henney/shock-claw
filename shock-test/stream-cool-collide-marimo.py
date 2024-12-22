@@ -1013,9 +1013,9 @@ def __(pyclaw):
         """Write to disk all the Solutions in a list of frames"""
         for itime, solution in enumerate(controller.frames):
             solution.write(
-                itime, 
-                file_format=controller.output_format, 
-                path=controller.outdir, 
+                itime,
+                file_format=controller.output_format,
+                path=controller.outdir,
                 file_prefix=controller.output_file_prefix,
                 options=controller.output_options,
             )
@@ -1024,7 +1024,7 @@ def __(pyclaw):
 
 @app.cell
 def __():
-    #save_all_frames(controller, file_prefix=f"shock-M{shock.mach_i_0:02d}")
+    # save_all_frames(controller, file_prefix=f"shock-M{shock.mach_i_0:02d}")
     return
 
 
