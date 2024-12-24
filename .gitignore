@@ -2,3 +2,4 @@ _output/
 .ipynb_checkpoints/
 *.pyc
 *.hdf
+.DS_Store
