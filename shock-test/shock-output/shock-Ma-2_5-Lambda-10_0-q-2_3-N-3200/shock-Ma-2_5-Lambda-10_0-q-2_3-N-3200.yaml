@@ -1,0 +1,11 @@
+shock Mach number: 2.5
+ncells: 3200
+tfinal: 1.5
+number of output times: 150
+gamma: 1.6666666666666667
+gamma1: 0.6666666666666666
+efix: false
+cool_method: second order
+cool_rate: 10.0
+cool_slope: 2.3
+T_eq: 1.0

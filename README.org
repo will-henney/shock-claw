@@ -171,7 +171,8 @@ CLOSED: [2024-12-07 Sat 11:45]
   - ~euler_1D_py.py~ has a Roe solver and HLLC solver, but no exact solver
   - ~euler_with_efix_1D_constants.py~ has constants for the index of the conserved variables (density, momentum, energy) 
 - 
-** TODO How to read/write the solution data
+** DONE How to read/write the solution data
+CLOSED: [2024-12-24 Tue 11:30]
 :LOGBOOK:
 - Note taken on [2024-12-20 Fri 12:25] \\
   It turns out that the solution gets written out anyhow, so we just need to copy the output
@@ -183,6 +184,9 @@ CLOSED: [2024-12-07 Sat 11:45]
 - Final answer is that I do not need to do very much at all
   - Running the simulation automatically saves the output files
   - It is not a good idea to change the ~controller.output_file_prefix~ parameter, since there is a bug in the implementation of the ascii writer, whereby it is inconsistently implemented
+- Saving the metadata to the HDF5 files
+  - Looks like this is not possible, so we can write out a yaml file instead
+- Currently I am using the HDF5 option, which means fewer files are cluttering the directories, since it writes just one file per timestep;
 - Docs are here:
   - http://www.clawpack.org/pyclaw/io.html
 - But there are things I am not sure of

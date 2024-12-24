@@ -30,7 +30,7 @@ def load_frames(model_path: Path, max_frames=1000) -> list[pyclaw.Solution]:
 def make_line_plots(
     model_path: Path,
     frames: list[pyclaw.Solution],
-    plot_dir: Path = Path("shock-plots"),
+        ;    plot_dir: Path = Path("shock-plots"),
     plot_vars: list[str] | None = None,
 ) -> None:
     """Make line plots of the solution variables.
@@ -57,10 +57,12 @@ def make_line_plots(
     fig.savefig(plot_dir / f"lineplot-{model_prefix}.pdf")
 
 
-def main(output_dir: Path = Path("shock-output")):
+def main(output_dir: Path = Path("shock-output"), verbose: bool = False):
     model_paths = output_dir.glob("shock-Ma-*N-????")
     for model_path in model_paths:
         frames = load_frames(model_path)
+        if verbose:
+            print(f"Loaded {len(frames)} frames from {model_path}")
         make_line_plots(model_path, frames[::10])
 
 if __name__ == "__main__":

@@ -7,8 +7,11 @@ from clawpack.riemann.euler_with_efix_1D_constants import (
     energy as i_energy,
 )
 import numpy as np
+import yaml
+from pathlib import Path
 import shock_utils
 import cooling_function
+
 
 
 def shock_tube_initialize_state(
@@ -47,6 +50,8 @@ def main(
     cool_slope: float = typer.Option(
         2.3, help="Power-law slope of the cooling function"
     ),
+    tfinal: float = typer.Option(1.0, help="Duration of the simulation"),
+    num_output_times: int = typer.Option(100, help="Number of output times"),
     output_format: str = typer.Option("hdf5", help="Output format for the simulation"),
 ):
     """Carry out colliding stream simulation with radiative cooling."""
@@ -58,7 +63,7 @@ def main(
         f"-Lambda-{cool_rate:04.1f}"
         f"-q-{cool_slope:.1f}"
         f"-N-{ncells:04d}"
-    )
+    ).replace(".", "_")         # Avoid floating point in file names
 
     print(model_id)
 
@@ -67,6 +72,9 @@ def main(
     solver.kernel_language = "Python"
     solver.bc_lower[0] = pyclaw.BC.extrap
     solver.bc_upper[0] = pyclaw.BC.extrap
+    # Set up the cooling source term
+    solver.step_source = cooling_function.cooling_source_term_step
+    
     # Domain for colliding stream simulation
     domain = pyclaw.Domain([pyclaw.Dimension(-1.0, 1.0, ncells, name="x")])
     # Initialize state
@@ -77,7 +85,7 @@ def main(
     state.problem_data["efix"] = False
 
     # Parameters for the cooling
-    state.problem_data["cool_method"] = "second"
+    state.problem_data["cool_method"] = "second order"
     state.problem_data["cool_rate"] = cool_rate
     state.problem_data["cool_slope"] = cool_slope
     state.problem_data["T_eq"] = 1.0
@@ -97,8 +105,8 @@ def main(
     controller = pyclaw.Controller()
     controller.solution = pyclaw.Solution(state, domain)
     controller.solver = solver
-    controller.tfinal = 1.0
-    controller.num_output_times = 100
+    controller.tfinal = tfinal
+    controller.num_output_times = num_output_times
 
     # Make sure we keep the intermediate time solutions
     controller.keep_copy = True
@@ -106,6 +114,24 @@ def main(
     # Bad idea to change from default of "fort" due to bug
     # controller.output_file_prefix = "shock"
     controller.outdir = f"shock-output/{model_id}"
+    # Make sure output folder exists
+    Path(controller.outdir).mkdir(parents=True, exist_ok=True)
+    # Write out metadata for this simulation to yaml file
+    with open(f"{controller.outdir}/{model_id}.yaml", "w") as f:
+        yaml.dump(
+            {
+                "shock Mach number": mach_number,
+                "ncells": ncells,
+                "tfinal": tfinal,
+                "number of output times": num_output_times,
+                **state.problem_data,
+            },
+            f,
+            allow_unicode=True,
+            sort_keys=False,
+            default_flow_style=False,
+        )
+    # Run the simulation
     status = controller.run()
 
 
